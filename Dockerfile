@@ -20,7 +20,9 @@ COPY ./pathdef.m /opt/matlab/R2022a/toolbox/local/pathdef.m
 # Set location of license file
 ENV MLM_LICENSE_FILE=/licenses/license.lic
 
-RUN unzip conn22a.zip && unzip spm12.zip
+RUN unzip conn22a.zip && \
+    unzip spm12.zip  && \
+    rm -rf  conn22a.zip spm12.zip
 
 # Start MATLAB in batch mode and execute your script/function.
 CMD ["matlab","-batch", "rand"]
