@@ -1,17 +1,17 @@
+
 APP_NAME           ?= alafia-conn-toolbox
+HOST_NAME          = #none
+HOST_IP            = #none
 
 DOCKER_IMAGE_NAME  ?= $(APP_NAME)
 DOCKER_IMAGE_TAG   ?= latest
-DOCKER_CONTEXT     ?= ./docker
-DOCKERHUB_USERNAME ?= pdlloyd
-DOCKERFILE         ?= ./docker/Dockerfile
-SERVICE_FILE       ?= ./app/$(APP_NAME).service
-DESKTOP_FILE       ?= ./app/$(APP_NAME).desktop
-ICON_FILE          ?= ./app/$(APP_NAME).svg
-MODIFYHOSTS_FILE   ?= ../modify-hosts.sh
-HOST_NAME          ?= conn.alafia
-HOST_IP            ?= 127.0.0.1
-APPLICATIONS_DIR   ?= /usr/share/applications #fixme
+DOCKER_CONTEXT     ?= ./build
+DOCKERFILE         ?= ./build/Dockerfile
+DEPLOY_PATH        ?= ./deploy
+SERVICE_FILE       ?= $(APP_NAME).service
+DESKTOP_FILE       ?= $(APP_NAME).desktop
+APPLICATIONS_DIR   ?= /usr/share/applications
+MODIFYHOSTS_SCRIPT ?= ../modify-hosts.sh
 
 # Build the Docker image
 build:
@@ -22,23 +22,21 @@ build:
 # Install the systemd service
 install:
 	@echo "Installing systemd service..."
-	sudo cp $(SERVICE_FILE) /etc/systemd/system/
+	sudo cp $(DEPLOY_PATH)/$(SERVICE_FILE) /etc/systemd/system/
 	sudo systemctl enable --now $(SERVICE_FILE)
 	@echo "Systemd service installed and started successfully."
 
 	@echo "Installing desktop entry..."
-	sudo cp $(DESKTOP_FILE) $(APPLICATIONS_DIR)
+	sudo cp $(DEPLOY_PATH)/$(DESKTOP_FILE) $(APPLICATIONS_DIR)
 	@echo "Desktop entry installed successfully."
 
-	@echo "Adding entry to /etc/hosts..."
-	sudo $(HOSTS_SCRIPT) $(HOST_IP) $(HOST_NAME) add
-	@echo "Entry added to /etc/hosts successfully."
-
-# Push the Docker image to Docker Hub
-push:
-	@echo "Pushing Docker image to Docker Hub..."
-	docker push $(DOCKERHUB_USERNAME)/$(IMAGE_NAME):$(IMAGE_TAG)
-	@echo "Docker image pushed successfully."
+	@if [ -z "$(HOST_NAME)" ]; then \
+		echo "HOST_NAME is not set. Skipping hosts modification."; \
+        else \
+		@echo "Adding entry to /etc/hosts..." && \
+		sudo $(MODIFYHOSTS_SCRIPT) $(HOST_IP) $(HOST_NAME) add && \
+		@echo "Entry added to /etc/hosts successfully."; \
+	fi
 
 # Uninstall the systemd service and remove all installed files
 uninstall:
@@ -52,9 +50,13 @@ uninstall:
 	sudo rm -f $(APPLICATIONS_DIR)/$(DESKTOP_FILE)
 	@echo "Desktop entry removed successfully."
 
-	@echo "Removing entry from /etc/hosts..."
-	sudo $(HOSTS_SCRIPT) $(HOST_IP) $(HOST_NAME) remove
-	@echo "Entry removed from /etc/hosts successfully."
+	@if [ -z "$(HOST_NAME)" ]; then \
+		echo "HOST_NAME is not set. Skipping hosts modification."; \
+        else \
+		@echo "Removing entry from /etc/hosts..." && \
+		sudo $(HOSTS_SCRIPT) $(HOST_IP) $(HOST_NAME) remove && \
+		@echo "Entry removed from /etc/hosts successfully."; \
+	fi
 
 .PHONY: build install push uninstall
 
